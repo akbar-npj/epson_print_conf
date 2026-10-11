@@ -12,7 +12,13 @@ def create_image(png_file, text):
     y_size = 150
     font_size = 30
     img = Image.new('RGB', (x_size, y_size), color='black')
-    fnt = ImageFont.truetype('arialbd.ttf', font_size)
+    try:
+        fnt = ImageFont.truetype('arialbd.ttf', font_size)
+    except OSError:
+        try:
+            fnt = ImageFont.load_default(size=font_size)
+        except TypeError:
+            fnt = ImageFont.load_default()
     d = ImageDraw.Draw(img)
     shadow_offset = 2
     bbox = d.textbbox((0, 0), text, font=fnt)
@@ -96,6 +102,16 @@ epson_usb_submodules = [
     'epson_usb_bridge',
 ]
 
+import glob
+import sys
+
+mypyc_hiddenimports = list(set([
+    os.path.basename(f).split('.')[0]
+    for p in sys.path if os.path.isdir(p)
+    for f in glob.glob(os.path.join(p, '*__mypyc*.*'))
+    if f.endswith(('.so', '.pyd', '.dylib'))
+]))
+
 a = Analysis(
     PROGRAM,
     pathex=PATHEX,
@@ -110,11 +126,22 @@ a = Analysis(
         '6b397dd64e00b5aff23d__mypyc', 'click', 'json', 'platform',
         'mypy_extensions', 'pathspec', '_black_version', 'platformdirs'
     ] + epson_usb_submodules
-      + black_submodules + blib2to3_submodules,  # the last two required by black
+      + black_submodules + blib2to3_submodules + mypyc_hiddenimports,  # required by black and tomli
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[],
+    excludes=[
+        'PyQt5',
+        'PyQt6',
+        'PySide2',
+        'PySide6',
+        'matplotlib',
+        'scipy',
+        'pandas',
+        'IPython',
+        'jupyter',
+        'notebook',
+    ],
     noarchive=False,
     optimize=0,
 )
@@ -142,7 +169,7 @@ exe = EXE(
     debug=False,  # Setting to True gives you progress messages from the executable (for console=False there will be annoying MessageBoxes on Windows).
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
+    upx=False,
     upx_exclude=[],
     runtime_tmpdir=None,
     console=options.default,  # On Windows or Mac OS governs whether to use the console executable or the windowed executable. Always True on Linux/Unix (always console executable - it does not matter there).
